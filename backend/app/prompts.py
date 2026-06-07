@@ -262,12 +262,28 @@ NOW WRITE THE QUIZ:
 - Exactly {count} questions. Use ONLY these two types: "choice" and "true-false". No \
 open/written answers. Favor multiple choice; include 1-2 true/false.
 - "choice": 4 options, ONE correct. Distractors must be the half-right answers a smart student \
-would actually pick (real misconceptions, overclaims, level confusions), never obviously wrong. \
-Vary WHICH option is correct across the quiz.
+would actually pick (real misconceptions, overclaims, level confusions), never obviously wrong.
 - "true-false": a claim subtle enough that a skimmer would guess wrong. Do NOT make every \
 true/false answer "false" — if you include two, at least one MUST be genuinely TRUE (and the \
 true one should be non-obvious, not a giveaway).
-- No two questions test the same point; spread them across the distinct ideas taught.{focus_block}
+- No two questions test the same point; spread them across the distinct ideas taught.
+
+ITEM-WRITING DISCIPLINE (CRITICAL — a test-savvy person must NOT be able to guess without \
+knowing the neuroscience). A real flaw to eliminate: the correct option being guessable from its \
+SHAPE rather than its content.
+- EQUAL LENGTH: all four options must be roughly the same length and level of detail (within \
+about 20%). The correct answer must NOT be the longest or the most elaborated. If anything, make \
+one or two DISTRACTORS the longest. Someone who blindly picks the longest option should be wrong \
+most of the time.
+- EQUAL CONFIDENCE/NUANCE: do not make the key the lone "balanced, hedged, it-depends" option \
+while the distractors are blunt or extreme. Spread qualifiers ("usually", "can", "depends") and \
+absolutes ("always", "never", "must", "only") evenly so hedging is not a tell. Every distractor \
+should sound like a confident, reasonable answer a good student might defend.
+- NO SURFACE CUES: no option that grammatically mismatches the stem, no "all/none of the above", \
+no option that just restates the stem, no repeated key word that only appears in the right answer.
+- VARY POSITION: the correct option's slot (a/b/c/d) must vary across the {count} questions; do \
+not cluster it in one position.
+The ONLY way to identify the correct option should be understanding the material.{focus_block}
 
 OUTPUT: return ONLY JSON of this exact shape (no prose, no code fences):
 {{"questions":[

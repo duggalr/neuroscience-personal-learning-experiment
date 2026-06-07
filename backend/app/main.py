@@ -1324,6 +1324,32 @@ def _next_srs(
     return level, interval, reps
 
 
+_ANTI_LENGTH_TELL = (
+    "\n\nREDO — IMPORTANT: in your previous attempt the correct answer was the LONGEST option in "
+    "most questions, which is a dead giveaway. Rewrite the ENTIRE quiz so that in EVERY "
+    "multiple-choice question all four options are similar in length, and at least one DISTRACTOR "
+    "is as long as or longer than the correct answer. The correct option must never be the longest."
+)
+
+
+def _correct_is_longest_fraction(questions: list) -> float:
+    """Fraction of MC questions where the correct option is the single longest — the 'tell'."""
+    mc = [q for q in questions if q.get("interaction") == "choice" and q.get("options")]
+    if not mc:
+        return 0.0
+    tells = 0
+    for q in mc:
+        opts = q["options"]
+        correct = next((o for o in opts if o.get("id") == q.get("correctOptionId")), None)
+        if not correct:
+            continue
+        clen = len(correct.get("label", ""))
+        others = [len(o.get("label", "")) for o in opts if o.get("id") != correct.get("id")]
+        if others and clen > max(others):
+            tells += 1
+    return tells / len(mc)
+
+
 @app.post("/concept/{concept_id}/quiz", response_model=QuizGenOut)
 def make_quiz(concept_id: str, review: bool = False):
     conn = get_conn()
@@ -1374,6 +1400,15 @@ def make_quiz(concept_id: str, review: bool = False):
         raise HTTPException(503, "Quiz generation unavailable (missing OPENAI_API_KEY?)")
     if not questions:
         raise HTTPException(502, "Quiz generation failed — please try again.")
+
+    # Safety net: if the correct answer is the longest option in half+ of the MC questions
+    # (a guessable 'tell'), regenerate once with a stronger instruction.
+    if _correct_is_longest_fraction(questions) >= 0.5:
+        retry = generate_quiz(
+            instructions + _ANTI_LENGTH_TELL, [{"role": "user", "content": ask}]
+        )
+        if retry:
+            questions = retry
 
     norm = []
     for i, q in enumerate(questions):
