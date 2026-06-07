@@ -2,7 +2,7 @@
 # Set `app` to your chosen (globally-unique) name and `primary_region` to one near you.
 # Run all fly commands from this directory (backend/).
 
-app = "neuro-backend"
+app = "neuro-backend-rahul"
 primary_region = "iad"   # iad=Ashburn, yyz=Toronto, bos=Boston — pick the closest
 
 [build]
