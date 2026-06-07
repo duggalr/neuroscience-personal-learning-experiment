@@ -31,7 +31,14 @@ LESSON_COMPLETE_MARKER = "[[LESSON_COMPLETE]]"
 
 
 def tutor_instructions(
-    ctx: TutorContext, *, opening: bool = False, remediation: bool = False
+    ctx: TutorContext,
+    *,
+    opening: bool = False,
+    remediation: bool = False,
+    beat_number: int | None = None,
+    target_beats: int = 5,
+    max_beats: int = 6,
+    force_final: bool = False,
 ) -> str:
     concepts_list = "; ".join(ctx.day_concepts)
     base = f"""\
@@ -63,14 +70,6 @@ mechanisms and analogies. Tie ideas to real circuits, disorders, or the papers h
 read. Be rigorous; flag subtle or commonly-misunderstood points. Keep cause vs measurement vs \
 explanation crisp. Connect back to earlier concepts when it helps.
 
-WHEN THE CONCEPT IS FULLY TAUGHT
-- Once you have taught all the important ideas of "{ctx.concept_title}" across your beats, wrap \
-up in one short turn: give a one or two sentence recap and tell {ctx.user_name} he is ready to \
-test it with the quiz.
-- Then, on its OWN FINAL LINE, output exactly this marker (the app uses it to reveal the quiz \
-button, and it is hidden from {ctx.user_name}): {LESSON_COMPLETE_MARKER}
-- Do not output the marker before the concept is genuinely, fully covered. Output it only once.
-
 THE QUIZ IS RUN BY THE APP
 - You NEVER ask quiz questions yourself, never administer a quiz in the chat, and never ask \
 {ctx.user_name} for questions. A "Quiz me on this" button runs the quiz on a separate screen. \
@@ -90,6 +89,26 @@ occasionally and naturally, not every message.
 potential $V$, or $I_{{\\text{{ion}}}}$) and $$...$$ on its own line for displayed equations \
 (e.g. $$C \\frac{{dV}}{{dt}} = -I_{{\\text{{ion}}}} + I_{{\\text{{input}}}}$$). NEVER write bare \
 LaTeX like \\frac or _{{...}} outside dollar delimiters, and do not wrap math in plain [ ] or ( )."""
+
+    # Beat turns (opening / continue) get an explicit length budget so the lesson converges
+    # instead of rambling for a dozen beats. Q&A turns omit this (no beat_number).
+    if beat_number is not None:
+        nearing = beat_number >= target_beats
+        base += f"""
+
+LESSON LENGTH (important — be concise and CONVERGE, do not ramble)
+- This whole concept should be taught in about {target_beats} beats total, and NEVER more than \
+{max_beats}. Cover the core ideas efficiently: skip tangents, do not repeat earlier beats, and \
+prefer fewer dense beats over many thin ones.
+- You are now teaching beat {beat_number} (of about {target_beats}).{" You should be wrapping the concept up around now." if nearing else ""}
+- WHEN THE CORE IS COVERED: wrap up in ONE short turn (a one or two sentence recap, and tell \
+{ctx.user_name} he is ready for the quiz), then output exactly {LESSON_COMPLETE_MARKER} on its \
+OWN FINAL LINE (hidden from him; it reveals the quiz button). Output it once, only when genuinely \
+done. Finishing in fewer beats than the budget is good."""
+        if force_final:
+            base += f"""
+- THIS MUST BE YOUR FINAL BEAT. Do not introduce new material. Give the brief recap now and emit \
+{LESSON_COMPLETE_MARKER} on its own final line."""
 
     if ctx.memory:
         base += f"""
@@ -270,17 +289,22 @@ conversation as important and wants it saved as an evergreen note he can review 
 Write ONE atomic, concept-oriented note:
 - A clear DECLARATIVE title that states the idea itself (e.g. "Measurement is not explanation"), \
 not a topic label (e.g. "Measurement").
-- A short markdown body: 2 to 5 sentences or a few tight bullets. Self-contained and accurate \
-to the passage. Evergreen: no "today we..." or references to the conversation.
+- A WELL-FORMATTED markdown body that is visually scannable, NOT one flat paragraph. Use:
+  - **bold** for the key terms and the core claim,
+  - short bullet lists for any set of items, distinctions, or steps,
+  - a brief lead sentence, then the structure.
+  - LaTeX for any math or symbols: $...$ inline, $$...$$ on its own line for displayed equations.
+  Keep it tight (a few sentences or bullets). Self-contained and accurate to the passage. \
+Evergreen: no "today we..." or references to the conversation.
 
 You may link this note to genuinely related EXISTING notes, by their EXACT titles only.
 Existing note titles: {titles}
 
 OUTPUT: return ONLY JSON of this exact shape (no prose, no code fences):
-{{"title":"<declarative title>","body":"<markdown>","links":["<existing title>", ...]}}
+{{"title":"<declarative title>","body":"<rich markdown>","links":["<existing title>", ...]}}
 
-RULES: atomic (one idea), declarative title, accurate, no em-dashes. links must be exact \
-titles from the list above, or an empty array."""
+RULES: atomic (one idea), declarative title, richly formatted markdown, accurate, no em-dashes. \
+links must be exact titles from the list above, or an empty array."""
 
 
 def quiz_grading_instructions(user_name: str) -> str:
@@ -404,8 +428,10 @@ RULES
 - Only `refine` when the conversation genuinely adds to or corrects that exact concept. Do not \
 refine just to reword.
 - Do NOT create a note whose concept already exists — refine it instead, or just link.
-- Bodies: clean markdown (bold key terms, short bullets/paragraphs), atomic scope, accurate to \
-what was discussed. Do not invent material that was not taught. Do not use em-dashes.
+- Bodies: WELL-FORMATTED, scannable markdown, never one flat paragraph. **Bold** the key terms \
+and the core claim; use short bullet lists for sets/distinctions/steps; write any math or symbols \
+in LaTeX ($...$ inline, $$...$$ displayed). Atomic scope, accurate to what was discussed. Do not \
+invent material that was not taught. Do not use em-dashes.
 - If the conversation added nothing worth noting, return an empty operations list.
 
 OUTPUT: return ONLY a JSON object of this exact shape, with no prose and no code fences:

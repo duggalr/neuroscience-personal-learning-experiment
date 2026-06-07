@@ -97,6 +97,18 @@ FRONTEND_ORIGINS = [
 DONE_LEVELS = ("partial", "strong", "easy")
 MASTERED_LEVELS = ("strong", "easy")
 
+# Lesson length budget — bounds how many beats a concept can take so it converges
+# instead of rambling. The tutor is told where it is; at MAX_BEATS the app forces a wrap-up.
+TARGET_BEATS = 5
+MAX_BEATS = 6
+
+
+def _count_beats(messages: list[dict]) -> int:
+    return sum(
+        1 for m in messages
+        if m["role"] == "assistant" and (m.get("kind") or "beat") == "beat"
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -562,7 +574,9 @@ def start_lesson(concept_id: str):
 
         return StreamingResponse(noop(), media_type="text/event-stream", headers=_SSE_HEADERS)
 
-    instructions = tutor_instructions(ctx, opening=True)
+    instructions = tutor_instructions(
+        ctx, opening=True, beat_number=1, target_beats=TARGET_BEATS, max_beats=MAX_BEATS
+    )
     input_messages = [{"role": "user", "content": OPENING_KICKOFF}]
     return StreamingResponse(
         _event_stream(concept_id, instructions, input_messages),
@@ -609,7 +623,15 @@ def continue_lesson(concept_id: str):
     finally:
         conn.close()
 
-    instructions = tutor_instructions(ctx, opening=False)
+    next_beat = _count_beats(history) + 1
+    force_final = next_beat >= MAX_BEATS
+    instructions = tutor_instructions(
+        ctx,
+        beat_number=next_beat,
+        target_beats=TARGET_BEATS,
+        max_beats=MAX_BEATS,
+        force_final=force_final,
+    )
     input_messages = [{"role": m["role"], "content": m["content"]} for m in history]
     input_messages.append({"role": "user", "content": CONTINUE_KICKOFF})
     return StreamingResponse(
