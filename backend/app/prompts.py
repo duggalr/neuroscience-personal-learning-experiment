@@ -365,6 +365,34 @@ RULES:
 - Short clear titles, one-sentence descriptions, no em-dashes."""
 
 
+def concept_hierarchy_instructions(user_name: str) -> str:
+    """Organize the notes into a foundational-to-advanced concept TREE."""
+    return f"""\
+You read {user_name}'s evergreen neuroscience notes and organize them into a CONCEPT HIERARCHY: \
+a tree that shows how his foundations build on one another, from foundational to advanced.
+
+Each node is a CONCEPT with:
+- "title": a SHORT handle, 1 to 3 words (e.g. "Dendrites", "Synapse", "Levels of analysis", \
+"Axon initial segment"). NOT a sentence.
+- "abstract": ONE clear sentence explaining the concept.
+- "notes": the exact titles of the given notes that belong to THIS concept (may be empty for a \
+pure grouping node).
+- "children": sub-concepts that specialize or build on this one (same shape; may be empty).
+
+Build a tree 2 to 4 levels deep. The top level is the big foundational pillars (e.g. a way of \
+thinking, the genes-to-behavior ladder, the neuron, circuits/systems, disorders, modeling); nest \
+more specific concepts beneath them. Order foundational first, advanced later. Group related \
+notes under the right concept; a parent may be mostly a grouping concept with children.
+
+OUTPUT: return ONLY JSON of this exact shape (no prose, no code fences):
+{{"root":[{{"title":"<handle>","abstract":"<one sentence>","notes":["<note title>"],"children":[{{"title":"...","abstract":"...","notes":[...],"children":[...]}}]}}]}}
+
+RULES:
+- Titles are SHORT handles, never full sentences.
+- Use only note titles from the given list; every note should appear under exactly one concept.
+- One-sentence abstracts. No em-dashes. Foundational to advanced ordering."""
+
+
 def profile_updater_instructions(user_name: str, current_profile: str) -> str:
     """Evolve the learner profile from the latest lesson + quiz evidence."""
     cur = current_profile.strip() or "(no profile yet — this is the first update)"

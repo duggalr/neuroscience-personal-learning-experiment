@@ -155,6 +155,17 @@ class ConceptTopicOut(BaseModel):
     notes: list[NoteRefOut]
 
 
+class ConceptNodeOut(BaseModel):
+    title: str
+    abstract: str = ""
+    notes: list[NoteRefOut] = []
+    children: list["ConceptNodeOut"] = []
+
+
+class ConceptHierarchyOut(BaseModel):
+    root: list[ConceptNodeOut] = []
+
+
 class NoteDetailOut(BaseModel):
     id: str
     title: str

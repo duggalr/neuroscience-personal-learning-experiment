@@ -7,6 +7,7 @@ import type {
   AnswerInput,
   Citation,
   ConceptDetail,
+  ConceptHierarchy,
   ConceptTopic,
   DayMap,
   EvergreenNote,
@@ -65,6 +66,8 @@ export const fetchConceptDetail = (id: string) =>
   getJSON<ConceptDetail>(`/concept/${id}`);
 export const fetchNotes = () => getJSON<NoteListItem[]>("/notes");
 export const fetchConcepts = () => getJSON<ConceptTopic[]>("/concepts");
+export const fetchConceptHierarchy = () =>
+  getJSON<ConceptHierarchy>("/concept-hierarchy");
 export const fetchDayMap = (conceptId: string) =>
   getJSON<DayMap>(`/day-map/${conceptId}`);
 export const fetchGraph = () => getJSON<GraphData>("/graph");

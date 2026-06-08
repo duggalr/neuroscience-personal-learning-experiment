@@ -24,6 +24,7 @@ from .prompts import (
     REMEDIATION_KICKOFF,
     TutorContext,
     concept_extractor_instructions,
+    concept_hierarchy_instructions,
     librarian_instructions,
     profile_updater_instructions,
     quiz_generation_instructions,
@@ -34,6 +35,7 @@ from .prompts import (
 from .seed import seed_if_empty
 from .tutor import (
     extract_concepts,
+    extract_hierarchy,
     generate_quiz,
     generate_text,
     grade_text_answers,
@@ -46,6 +48,8 @@ from .schemas import (
     CitationOut,
     ConceptContextOut,
     ConceptDetailOut,
+    ConceptHierarchyOut,
+    ConceptNodeOut,
     ConceptOut,
     ConceptTopicOut,
     DayMapBeatOut,
@@ -919,6 +923,41 @@ def pin_quiz(concept_id: str, body: PinIn):
     return {"ok": True}
 
 
+def _regenerate_hierarchy() -> None:
+    """Roll all notes into a concept tree and cache it (singleton). Best-effort."""
+    conn = get_conn()
+    try:
+        all_notes = [
+            dict(r) for r in conn.execute("SELECT id, title, body FROM note").fetchall()
+        ]
+    finally:
+        conn.close()
+    if not all_notes:
+        return
+    notes_block = "\n\n".join(f'- "{n["title"]}": {n["body"][:300]}' for n in all_notes)
+    ask = (
+        "Here are the notes, for REFERENCE ONLY. Do NOT continue any conversation. "
+        "Organize them into a concept hierarchy.\n\n"
+        f"=== NOTES ===\n{notes_block}\n=== END ===\n\n"
+        "Now output ONLY the hierarchy JSON."
+    )
+    root = extract_hierarchy(
+        concept_hierarchy_instructions(USER_NAME), [{"role": "user", "content": ask}]
+    )
+    if not root:
+        return
+    conn = get_conn()
+    try:
+        with conn:
+            conn.execute(
+                "INSERT INTO concept_hierarchy(id, content, updated_at) VALUES (1, ?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at",
+                (json.dumps({"root": root}), _now_iso()),
+            )
+    finally:
+        conn.close()
+
+
 @app.post("/concept/{concept_id}/notes/process", response_model=ProcessResultOut)
 def process_notes(concept_id: str):
     """Run the librarian over this concept's conversation: create/link auto, refine/merge proposed."""
@@ -1097,6 +1136,8 @@ def process_notes(concept_id: str):
                         )
             finally:
                 conn.close()
+        # Refresh the concept hierarchy tree from the same notes.
+        _regenerate_hierarchy()
 
     # Evolve the learner profile from this lesson + the latest quiz result.
     conn = get_conn()
@@ -1211,6 +1252,53 @@ def list_concepts():
             ConceptTopicOut(title=t["title"], description=t["description"], notes=refs)
         )
     return out
+
+
+@app.get("/concept-hierarchy", response_model=ConceptHierarchyOut)
+def concept_hierarchy():
+    """The concept tree (foundational → advanced). Built lazily on first view, then cached."""
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT content FROM concept_hierarchy WHERE id = 1").fetchone()
+        has_notes = conn.execute("SELECT 1 FROM note LIMIT 1").fetchone() is not None
+    finally:
+        conn.close()
+
+    if not row and has_notes:
+        _regenerate_hierarchy()  # first-time build
+        conn = get_conn()
+        try:
+            row = conn.execute("SELECT content FROM concept_hierarchy WHERE id = 1").fetchone()
+        finally:
+            conn.close()
+
+    if not row:
+        return ConceptHierarchyOut(root=[])
+
+    conn = get_conn()
+    try:
+        title_to = {
+            r["title"].lower(): (r["id"], r["title"])
+            for r in conn.execute("SELECT id, title FROM note").fetchall()
+        }
+    finally:
+        conn.close()
+
+    def conv(node: dict) -> ConceptNodeOut:
+        refs = []
+        for t in node.get("notes") or []:
+            hit = title_to.get(str(t).lower())
+            if hit:
+                refs.append(NoteRefOut(id=hit[0], title=hit[1]))
+        return ConceptNodeOut(
+            title=(node.get("title") or "").strip(),
+            abstract=(node.get("abstract") or "").strip(),
+            notes=refs,
+            children=[conv(ch) for ch in (node.get("children") or []) if isinstance(ch, dict)],
+        )
+
+    tree = json.loads(row["content"]).get("root", [])
+    return ConceptHierarchyOut(root=[conv(n) for n in tree if isinstance(n, dict)])
 
 
 @app.get("/note/{note_id}", response_model=NoteDetailOut)

@@ -125,6 +125,17 @@ export interface NoteListItem {
   linkCount: number;
 }
 
+export interface ConceptNode {
+  title: string;
+  abstract: string;
+  notes: NoteRef[];
+  children: ConceptNode[];
+}
+
+export interface ConceptHierarchy {
+  root: ConceptNode[];
+}
+
 export interface ConceptTopic {
   title: string;
   description: string;

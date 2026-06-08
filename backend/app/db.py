@@ -93,6 +93,14 @@ CREATE TABLE IF NOT EXISTS concept_topic (
   updated_at   TEXT NOT NULL
 );
 
+-- Concept hierarchy: a tree of concept handles rolled up from the notes, showing how
+-- foundations build on each other. Singleton JSON, regenerated when notes change.
+CREATE TABLE IF NOT EXISTS concept_hierarchy (
+  id          INTEGER PRIMARY KEY CHECK (id = 1),
+  content     TEXT NOT NULL,   -- JSON {"root": [node, ...]}
+  updated_at  TEXT NOT NULL
+);
+
 -- Learner-flagged content from a lesson: "add this to my notes" / "quiz me on this".
 -- A 'note' pin records the note that was written from it; a 'quiz' pin is a must-cover
 -- point injected into the next quiz for that concept.

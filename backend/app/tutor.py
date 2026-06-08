@@ -92,6 +92,15 @@ def extract_concepts(instructions: str, input_messages: list[dict]) -> list | No
     return cs if isinstance(cs, list) else []
 
 
+def extract_hierarchy(instructions: str, input_messages: list[dict]) -> list | None:
+    """Returns the concept tree (list of root nodes) rolled up from the notes, or None."""
+    data = _json_completion(instructions, input_messages)
+    if data is None:
+        return None
+    root = data.get("root") if isinstance(data, dict) else None
+    return root if isinstance(root, list) else []
+
+
 def write_single_note(instructions: str, input_messages: list[dict]) -> dict | None:
     """Write one evergreen note ({title, body, links}) from a flagged passage, or None."""
     data = _json_completion(instructions, input_messages)

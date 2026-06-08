@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, Link2, Sparkles } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { ConceptsView } from "@/components/ConceptsView";
+import { HierarchyView } from "@/components/HierarchyView";
 import { LoadingScreen, ErrorScreen } from "@/components/Status";
 import { fetchNotes, fetchProposals } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
@@ -13,9 +14,16 @@ import type { NoteListItem } from "@/lib/types";
 
 const load = () => Promise.all([fetchNotes(), fetchProposals()]);
 
+type View = "list" | "concepts" | "hierarchy";
+const VIEWS: { id: View; label: string }[] = [
+  { id: "list", label: "Notes" },
+  { id: "concepts", label: "Concepts" },
+  { id: "hierarchy", label: "Hierarchy" },
+];
+
 export function NotesClient() {
   const { data, error, loading, reload } = useAsync(load);
-  const [view, setView] = useState<"list" | "concepts">("list");
+  const [view, setView] = useState<View>("list");
 
   if (loading) return <LoadingScreen />;
   if (error || !data) return <ErrorScreen message={error ?? undefined} onRetry={reload} />;
@@ -62,24 +70,24 @@ export function NotesClient() {
             </Link>
           )}
 
-          {/* Notes / Concepts toggle */}
+          {/* Notes / Concepts / Hierarchy toggle */}
           <div
             className="mt-5 inline-flex rounded-pill p-0.5"
             style={{ background: "var(--color-surface-sunken)", border: "1px solid var(--color-line)" }}
           >
-            {(["list", "concepts"] as const).map((v) => (
+            {VIEWS.map((v) => (
               <button
-                key={v}
+                key={v.id}
                 type="button"
-                onClick={() => setView(v)}
+                onClick={() => setView(v.id)}
                 className="rounded-pill px-4 py-1.5 text-[0.8125rem] font-medium transition-colors"
                 style={{
-                  background: view === v ? "var(--color-surface)" : "transparent",
-                  color: view === v ? "var(--color-ink)" : "var(--color-muted)",
-                  boxShadow: view === v ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  background: view === v.id ? "var(--color-surface)" : "transparent",
+                  color: view === v.id ? "var(--color-ink)" : "var(--color-muted)",
+                  boxShadow: view === v.id ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
                 }}
               >
-                {v === "list" ? "Notes" : "Concepts"}
+                {v.label}
               </button>
             ))}
           </div>
@@ -105,8 +113,10 @@ export function NotesClient() {
               </ul>
             )}
           </div>
-        ) : (
+        ) : view === "concepts" ? (
           <ConceptsView />
+        ) : (
+          <HierarchyView />
         )}
       </main>
 
