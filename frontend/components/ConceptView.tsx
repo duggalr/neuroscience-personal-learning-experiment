@@ -688,7 +688,11 @@ function QaTutorTurn({
       </span>
       <Markdown source={cleanTutorText(content)} />
       <Sources items={citations} />
-      <PinActions conceptId={conceptId} content={cleanTutorText(content)} />
+      <PinActions
+        conceptId={conceptId}
+        content={cleanTutorText(content)}
+        citations={citations}
+      />
     </div>
   );
 }
@@ -697,7 +701,15 @@ type PinState = "idle" | "saving" | "done";
 
 // Per-answer actions: ask the librarian to save this as a note now, or flag it to be
 // tested in the next quiz. Both are on top of the automatic background processing.
-function PinActions({ conceptId, content }: { conceptId: string; content: string }) {
+function PinActions({
+  conceptId,
+  content,
+  citations,
+}: {
+  conceptId: string;
+  content: string;
+  citations?: Citation[];
+}) {
   const [note, setNote] = useState<PinState>("idle");
   const [noteRef, setNoteRef] = useState<{ id: string; title: string } | null>(null);
   const [quiz, setQuiz] = useState<PinState>("idle");
@@ -706,7 +718,7 @@ function PinActions({ conceptId, content }: { conceptId: string; content: string
     if (note !== "idle") return;
     setNote("saving");
     try {
-      const res = await pinNote(conceptId, content);
+      const res = await pinNote(conceptId, content, citations ?? []);
       setNoteRef(res.note);
       setNote("done");
     } catch {

@@ -153,6 +153,19 @@ export interface EvergreenNote {
   body: string;
   updatedAt: string;
   links: NoteRef[];
+  citations: Citation[];
+}
+
+export interface ReviewScheduleItem {
+  conceptId: string;
+  conceptTitle: string;
+  level: MasteryLevel;
+  dueAt: string;
+}
+
+export interface ReviewSchedule {
+  due: ReviewScheduleItem[];
+  upcoming: ReviewScheduleItem[];
 }
 
 export interface Proposal {
@@ -252,4 +265,6 @@ export interface TodayState {
   reviewsDue: ReviewCardSummary[];
   resumeConceptId: string | null;
   nextConcept: NextConcept | null; // null only when the whole course is complete
+  nextReviewAt: string | null;
+  reviewsUpcoming: number;
 }

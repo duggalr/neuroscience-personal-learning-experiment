@@ -54,6 +54,20 @@ class TodayOut(BaseModel):
     reviewsDue: list[ReviewCardOut]
     resumeConceptId: str | None
     nextConcept: NextConceptOut | None
+    nextReviewAt: str | None = None  # soonest upcoming (not-yet-due) review
+    reviewsUpcoming: int = 0  # count of scheduled-but-not-yet-due concepts
+
+
+class ReviewScheduleItemOut(BaseModel):
+    conceptId: str
+    conceptTitle: str
+    level: str
+    dueAt: str
+
+
+class ReviewScheduleOut(BaseModel):
+    due: list[ReviewScheduleItemOut]
+    upcoming: list[ReviewScheduleItemOut]
 
 
 class CitationOut(BaseModel):
@@ -104,6 +118,7 @@ class NoteListItemOut(BaseModel):
 
 class PinIn(BaseModel):
     content: str
+    citations: list[CitationOut] = []
 
 
 class PinNoteOut(BaseModel):
@@ -145,6 +160,7 @@ class NoteDetailOut(BaseModel):
     body: str
     updatedAt: str
     links: list[NoteRefOut] = []
+    citations: list[CitationOut] = []
 
 
 class GraphNodeOut(BaseModel):

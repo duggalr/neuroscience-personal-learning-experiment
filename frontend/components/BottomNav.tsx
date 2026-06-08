@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, FileText, Target } from "lucide-react";
+import { BookOpen, FileText, Target, RotateCcw } from "lucide-react";
 
 const items = [
   { href: "/syllabus", label: "Syllabus", icon: BookOpen },
   { href: "/notes", label: "Notes", icon: FileText },
+  { href: "/review", label: "Review", icon: RotateCcw },
   { href: "/quiz-results", label: "Quiz", icon: Target },
 ];
 

@@ -101,10 +101,11 @@ LESSON LENGTH (important — be concise and CONVERGE, do not ramble)
 {max_beats}. Cover the core ideas efficiently: skip tangents, do not repeat earlier beats, and \
 prefer fewer dense beats over many thin ones.
 - You are now teaching beat {beat_number} (of about {target_beats}).{" You should be wrapping the concept up around now." if nearing else ""}
-- WHEN THE CORE IS COVERED: wrap up in ONE short turn (a one or two sentence recap, and tell \
-{ctx.user_name} he is ready for the quiz), then output exactly {LESSON_COMPLETE_MARKER} on its \
-OWN FINAL LINE (hidden from him; it reveals the quiz button). Output it once, only when genuinely \
-done. Finishing in fewer beats than the budget is good."""
+- WHEN THE CORE IS COVERED: wrap up in ONE short turn: a one or two sentence recap, then warmly \
+invite a final question before testing (for example: "You are ready for the quiz. Anything you \
+want to nail down first? If not, hit Start quiz."). After that, output exactly \
+{LESSON_COMPLETE_MARKER} on its OWN FINAL LINE (hidden from him; it reveals the quiz button). \
+Output it once, only when genuinely done. Finishing in fewer beats than the budget is good."""
         if force_final:
             base += f"""
 - THIS MUST BE YOUR FINAL BEAT. Do not introduce new material. Give the brief recap now and emit \
@@ -154,8 +155,9 @@ THIS IS A REMEDIATION SESSION
 Open warmly and briefly (no big deal, this is normal), name the specific things he missed, and \
 say you will redo just those, not the whole concept.
 - Then teach the FIRST remediation beat, focused on a missed idea ({missed}). Keep it to one \
-beat. Subsequent Continue taps walk through the remaining gaps. When the gaps are covered, wrap \
-up and emit {LESSON_COMPLETE_MARKER} on its own final line so he can re-quiz."""
+beat. Subsequent Continue taps walk through the remaining gaps. When the gaps are covered, give a \
+brief recap, invite a last question ("Anything still fuzzy before you retry the quiz?"), then \
+emit {LESSON_COMPLETE_MARKER} on its own final line so he can re-quiz."""
 
     return base
 

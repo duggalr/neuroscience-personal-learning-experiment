@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS note (
   id          TEXT PRIMARY KEY,   -- stable slug from the title
   title       TEXT NOT NULL,
   body        TEXT NOT NULL,
+  citations   TEXT,   -- JSON array of {url, title}: source links carried over from a pinned answer
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
 );
@@ -173,6 +174,9 @@ def _migrate(conn) -> None:
     if cm_cols and "reps" not in cm_cols:
         # Consecutive successful reviews — drives the expanding SRS interval.
         conn.execute("ALTER TABLE concept_mastery ADD COLUMN reps INTEGER NOT NULL DEFAULT 0")
+    note_cols = {r["name"] for r in conn.execute("PRAGMA table_info(note)")}
+    if note_cols and "citations" not in note_cols:
+        conn.execute("ALTER TABLE note ADD COLUMN citations TEXT")
 
 
 def get_conn() -> sqlite3.Connection:

@@ -18,6 +18,7 @@ import type {
   QuizAttempt,
   QuizGen,
   QuizSubmitResult,
+  ReviewSchedule,
   SyllabusDay,
   TodayState,
 } from "./types";
@@ -58,6 +59,7 @@ async function getJSON<T>(path: string): Promise<T> {
 }
 
 export const fetchToday = () => getJSON<TodayState>("/today");
+export const fetchReviews = () => getJSON<ReviewSchedule>("/reviews");
 export const fetchSyllabus = () => getJSON<SyllabusDay[]>("/syllabus");
 export const fetchConceptDetail = (id: string) =>
   getJSON<ConceptDetail>(`/concept/${id}`);
@@ -106,8 +108,12 @@ export const submitQuiz = (quizId: number, answers: AnswerInput[]) =>
 export const fetchQuizResults = () => getJSON<QuizAttempt[]>("/quiz-results");
 
 // Learner-flagged content from a lesson.
-export const pinNote = (conceptId: string, content: string) =>
-  postJSON<{ note: NoteRef }>(`/concept/${conceptId}/pin-note`, { content });
+export const pinNote = (
+  conceptId: string,
+  content: string,
+  citations: Citation[] = []
+) =>
+  postJSON<{ note: NoteRef }>(`/concept/${conceptId}/pin-note`, { content, citations });
 export const pinQuiz = (conceptId: string, content: string) =>
   postJSON<{ ok: boolean }>(`/concept/${conceptId}/pin-quiz`, { content });
 

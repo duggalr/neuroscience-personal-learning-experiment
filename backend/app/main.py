@@ -64,6 +64,8 @@ from .schemas import (
     PinIn,
     PinNoteOut,
     ProcessResultOut,
+    ReviewScheduleItemOut,
+    ReviewScheduleOut,
     ProposalOut,
     ProgressOut,
     QuizAttemptOut,
@@ -484,6 +486,16 @@ def today():
         for c, m in due_concepts
     ]
 
+    # Upcoming (scheduled but not yet due) — drives the home "next review" indicator.
+    upcoming_dates = sorted(
+        mastery[c["id"]]["due_at"]
+        for c in all_concepts
+        if mastery.get(c["id"], {}).get("due_at")
+        and mastery[c["id"]]["level"] != "untouched"
+        and mastery[c["id"]]["due_at"] > now
+    )
+    next_review_at = upcoming_dates[0] if upcoming_dates else None
+
     # Progress within the day you're currently working on (for a motivating ring).
     cur_day = next((d for d in days if d["id"] == current_day_id), None)
     if cur_day:
@@ -513,6 +525,40 @@ def today():
         reviewsDue=reviews,
         resumeConceptId=None,
         nextConcept=next_concept,
+        nextReviewAt=next_review_at,
+        reviewsUpcoming=len(upcoming_dates),
+    )
+
+
+@app.get("/reviews", response_model=ReviewScheduleOut)
+def reviews():
+    """Full spaced-repetition schedule: what's due now and what's coming up, with dates."""
+    conn = get_conn()
+    try:
+        days = _load_days(conn)
+        mastery = {
+            r["concept_id"]: dict(r)
+            for r in conn.execute("SELECT * FROM concept_mastery").fetchall()
+        }
+    finally:
+        conn.close()
+    now = _now_iso()
+    items = []
+    for c in (c for d in days for c in d["concepts"]):
+        m = mastery.get(c["id"])
+        if not m or not m.get("due_at") or m["level"] == "untouched":
+            continue
+        items.append((c, m))
+    items.sort(key=lambda cm: cm[1]["due_at"])
+
+    def _item(c, m):
+        return ReviewScheduleItemOut(
+            conceptId=c["id"], conceptTitle=c["title"], level=m["level"], dueAt=m["due_at"]
+        )
+
+    return ReviewScheduleOut(
+        due=[_item(c, m) for c, m in items if m["due_at"] <= now],
+        upcoming=[_item(c, m) for c, m in items if m["due_at"] > now],
     )
 
 
@@ -736,9 +782,22 @@ def _list_note_rows(conn) -> list[dict]:
 
 def _get_note_row(conn, note_id: str) -> dict | None:
     r = conn.execute(
-        "SELECT id, title, body, updated_at FROM note WHERE id = ?", (note_id,)
+        "SELECT id, title, body, citations, updated_at FROM note WHERE id = ?", (note_id,)
     ).fetchone()
     return dict(r) if r else None
+
+
+def _merge_citations(existing_json: str | None, new_list: list) -> list[dict]:
+    """Union of existing note citations and new ones, deduped by URL, order preserved."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    base = json.loads(existing_json) if existing_json else []
+    for src in base + (new_list or []):
+        url = src.get("url")
+        if url and url not in seen:
+            seen.add(url)
+            out.append({"url": url, "title": src.get("title") or url})
+    return out
 
 
 def _note_id_by_title(conn, title: str) -> str | None:
@@ -794,20 +853,27 @@ def pin_note(concept_id: str, body: PinIn):
         raise HTTPException(502, "Couldn't write the note — please try again.")
 
     title, body_md, links = note["title"], note["body"], note["links"]
+    new_cites = [{"url": c.url, "title": c.title} for c in body.citations]
     now = _now_iso()
     conn = get_conn()
     try:
         with conn:
             nid = _note_id_by_title(conn, title)
             if nid:
+                existing = conn.execute(
+                    "SELECT citations FROM note WHERE id = ?", (nid,)
+                ).fetchone()
+                merged = _merge_citations(existing["citations"] if existing else None, new_cites)
                 conn.execute(
-                    "UPDATE note SET body = ?, updated_at = ? WHERE id = ?", (body_md, now, nid)
+                    "UPDATE note SET body = ?, citations = ?, updated_at = ? WHERE id = ?",
+                    (body_md, json.dumps(merged) if merged else None, now, nid),
                 )
             else:
                 nid = _unique_slug(conn, _slugify(title))
                 conn.execute(
-                    "INSERT INTO note(id, title, body, created_at, updated_at) VALUES (?,?,?,?,?)",
-                    (nid, title, body_md, now, now),
+                    "INSERT INTO note(id, title, body, citations, created_at, updated_at) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (nid, title, body_md, json.dumps(new_cites) if new_cites else None, now, now),
                 )
             conn.execute(
                 "INSERT OR IGNORE INTO note_source(note_id, lesson_concept_id, created_at) VALUES (?,?,?)",
@@ -1153,12 +1219,14 @@ def get_note(note_id: str):
         links = _note_links(conn, note_id)
     finally:
         conn.close()
+    cites = json.loads(r["citations"]) if r.get("citations") else []
     return NoteDetailOut(
         id=r["id"],
         title=r["title"],
         body=r["body"],
         updatedAt=r["updated_at"],
         links=[NoteRefOut(**lk) for lk in links],
+        citations=[CitationOut(**c) for c in cites],
     )
 
 

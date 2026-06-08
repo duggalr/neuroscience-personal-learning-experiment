@@ -24,6 +24,19 @@ export function TodayClient() {
 
   const { userName, progress, reviewsDue, resumeConceptId, nextConcept } = data;
 
+  // Forward-looking "next review" label for the home indicator.
+  const nextReviewLabel = (() => {
+    if (!data.nextReviewAt) return null;
+    const due = new Date(data.nextReviewAt);
+    const now = new Date();
+    const startOfDay = (d: Date) =>
+      new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayDiff = Math.round((startOfDay(due) - startOfDay(now)) / 86_400_000);
+    if (dayDiff <= 0) return "later today";
+    if (dayDiff === 1) return "tomorrow";
+    return `in ${dayDiff} days`;
+  })();
+
   return (
     <div className="flex min-h-dvh flex-col">
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-6 pt-12">
@@ -64,17 +77,40 @@ export function TodayClient() {
           style={{ background: "var(--color-line)" }}
         />
 
-        {reviewsDue.length > 0 && (
+        {reviewsDue.length > 0 ? (
           <section className="mt-8 flex flex-col gap-3">
-            <p className="label-caps">
+            <Link href="/review" className="label-caps inline-flex items-center gap-1">
               Due for review · {reviewsDue.length}
-            </p>
+              <ChevronRight size={13} strokeWidth={2.2} />
+            </Link>
             <ul className="flex flex-col gap-2">
               {reviewsDue.map((r) => (
                 <ReviewCard key={r.conceptId} review={r} />
               ))}
             </ul>
           </section>
+        ) : (
+          nextReviewLabel && (
+            <Link
+              href="/review"
+              className="group mt-8 flex items-center gap-3 rounded-[12px] px-4 py-3 transition-colors hover:bg-[var(--color-surface-sunken)]"
+              style={{ border: "1px solid var(--color-line)" }}
+            >
+              <RotateCcw size={15} strokeWidth={2} style={{ color: "var(--color-accent)" }} />
+              <span className="flex-1 text-[0.875rem]" style={{ color: "var(--color-ink)" }}>
+                Next review {nextReviewLabel}
+                <span style={{ color: "var(--color-faint)" }}>
+                  {" "}· {data.reviewsUpcoming} concept{data.reviewsUpcoming === 1 ? "" : "s"} scheduled
+                </span>
+              </span>
+              <ChevronRight
+                size={16}
+                strokeWidth={2}
+                className="shrink-0 transition-transform group-hover:translate-x-0.5"
+                style={{ color: "var(--color-faint)" }}
+              />
+            </Link>
+          )
         )}
 
         {nextConcept ? (

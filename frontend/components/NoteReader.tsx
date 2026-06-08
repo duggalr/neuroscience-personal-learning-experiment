@@ -9,6 +9,14 @@ import { fetchNote } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { relativeTime } from "@/lib/text";
 
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 export function NoteReader({ noteId }: { noteId: string }) {
   const { data, error, loading, reload } = useAsync(() => fetchNote(noteId));
 
@@ -56,6 +64,36 @@ export function NoteReader({ noteId }: { noteId: string }) {
         <div className="mt-5">
           <Markdown source={data.body} />
         </div>
+
+        {data.citations.length > 0 && (
+          <div
+            className="mt-8 flex flex-col gap-2 border-t pt-5"
+            style={{ borderColor: "var(--color-line)" }}
+          >
+            <span className="label-caps" style={{ color: "var(--color-faint)" }}>
+              Sources
+            </span>
+            <ol className="flex flex-col gap-1.5">
+              {data.citations.map((c, i) => (
+                <li key={c.url} className="flex gap-2 text-[0.8125rem] leading-snug">
+                  <span className="tabular-nums pt-px" style={{ color: "var(--color-faint)" }}>
+                    {i + 1}
+                  </span>
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex flex-wrap items-baseline gap-x-1.5 underline-offset-2 hover:underline"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    <span>{c.title}</span>
+                    <span style={{ color: "var(--color-faint)" }}>{hostOf(c.url)}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
         {data.links.length > 0 && (
           <div
