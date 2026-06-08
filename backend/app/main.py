@@ -430,6 +430,9 @@ def today():
             for r in conn.execute("SELECT * FROM concept_mastery").fetchall()
         }
         streak = _compute_streak(conn)
+        pending_proposals = conn.execute(
+            "SELECT COUNT(*) AS n FROM note_proposal WHERE status = 'pending'"
+        ).fetchone()["n"]
     finally:
         conn.close()
 
@@ -527,6 +530,7 @@ def today():
         nextConcept=next_concept,
         nextReviewAt=next_review_at,
         reviewsUpcoming=len(upcoming_dates),
+        pendingProposals=pending_proposals,
     )
 
 

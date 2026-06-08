@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Flame, RotateCcw, ChevronRight } from "lucide-react";
+import { ArrowRight, Flame, RotateCcw, ChevronRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { ProgressRing } from "@/components/ProgressRing";
 import { BottomNav } from "@/components/BottomNav";
@@ -46,6 +46,32 @@ export function TodayClient() {
         >
           Welcome back, {userName}.
         </h1>
+
+        {data.pendingProposals > 0 && (
+          <Link
+            href="/notes/review"
+            className="group mt-6 flex items-center gap-3 rounded-[12px] px-4 py-3 transition-colors"
+            style={{
+              background: "var(--color-accent-tint)",
+              border: "1px solid color-mix(in oklch, var(--color-accent) 22%, transparent)",
+            }}
+          >
+            <Sparkles size={16} strokeWidth={2} style={{ color: "var(--color-accent)" }} />
+            <span
+              className="flex-1 text-[0.875rem] font-medium"
+              style={{ color: "var(--color-accent)" }}
+            >
+              {data.pendingProposals} proposed note{" "}
+              {data.pendingProposals === 1 ? "change" : "changes"} to review
+            </span>
+            <ChevronRight
+              size={16}
+              strokeWidth={2}
+              className="transition-transform group-hover:translate-x-0.5"
+              style={{ color: "var(--color-accent)" }}
+            />
+          </Link>
+        )}
 
         <div className="mt-12 flex flex-col items-center gap-3">
           <ProgressRing

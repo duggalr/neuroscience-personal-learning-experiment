@@ -267,4 +267,5 @@ export interface TodayState {
   nextConcept: NextConcept | null; // null only when the whole course is complete
   nextReviewAt: string | null;
   reviewsUpcoming: number;
+  pendingProposals: number;
 }

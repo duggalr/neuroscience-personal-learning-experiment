@@ -56,6 +56,7 @@ class TodayOut(BaseModel):
     nextConcept: NextConceptOut | None
     nextReviewAt: str | None = None  # soonest upcoming (not-yet-due) review
     reviewsUpcoming: int = 0  # count of scheduled-but-not-yet-due concepts
+    pendingProposals: int = 0  # librarian note changes awaiting your review
 
 
 class ReviewScheduleItemOut(BaseModel):
