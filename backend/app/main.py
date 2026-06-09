@@ -201,6 +201,18 @@ def _load_messages(conn, concept_id: str) -> list[dict]:
     ]
 
 
+def _ever_passed_ids(conn) -> set:
+    """Concept ids that have EVER passed a quiz (>=70%). The forward frontier is the first
+    concept NOT in this set; regressed (passed-then-weak) concepts are handled by Review."""
+    return {
+        r["concept_id"]
+        for r in conn.execute(
+            "SELECT DISTINCT concept_id FROM quiz_attempt "
+            "WHERE total > 0 AND (score * 1.0 / total) >= 0.7"
+        ).fetchall()
+    }
+
+
 def _last_quiz_passed(conn, concept_id: str) -> bool | None:
     """True/False for the latest quiz attempt on this concept, or None if never attempted."""
     att = conn.execute(
@@ -437,6 +449,7 @@ def today():
         pending_proposals = conn.execute(
             "SELECT COUNT(*) AS n FROM note_proposal WHERE status = 'pending'"
         ).fetchone()["n"]
+        ever_passed = _ever_passed_ids(conn)
     finally:
         conn.close()
 
@@ -446,8 +459,10 @@ def today():
         1 for c in all_concepts if mastery.get(c["id"], {}).get("level") in MASTERED_LEVELS
     )
 
+    # "Done" for forward progress = ever passed (a regressed concept stays done; it resurfaces
+    # only via Review). This keeps forward navigation moving to genuinely new material.
     def concept_done(cid: str) -> bool:
-        return mastery.get(cid, {}).get("level") in DONE_LEVELS
+        return cid in ever_passed
 
     def day_done(d: dict) -> bool:
         return bool(d["concepts"]) and all(concept_done(c["id"]) for c in d["concepts"])
@@ -1763,21 +1778,16 @@ def submit_quiz(quiz_id: int, body: QuizSubmitIn):
             )
         # Recompute progress to find the next concept and whether the day is now complete.
         days = _load_days(conn)
-        mastery = {
-            r["concept_id"]: dict(r)
-            for r in conn.execute("SELECT * FROM concept_mastery").fetchall()
-        }
+        # Forward frontier = first concept never passed (regressions go to Review, not here).
+        ever_passed = _ever_passed_ids(conn)
         cx = _concept_context(conn, concept_id)
     finally:
         conn.close()
 
-    def _done(cid: str) -> bool:
-        return mastery.get(cid, {}).get("level") in DONE_LEVELS
-
     next_id = next_title = None
     for d in days:
         for c in d["concepts"]:
-            if not _done(c["id"]):
+            if c["id"] not in ever_passed:
                 next_id, next_title = c["id"], c["title"]
                 break
         if next_id:
@@ -1785,7 +1795,7 @@ def submit_quiz(quiz_id: int, body: QuizSubmitIn):
 
     cur_day = cx["day"]
     day_concepts = [c for d in days if d["id"] == cur_day["id"] for c in d["concepts"]]
-    day_complete = bool(day_concepts) and all(_done(c["id"]) for c in day_concepts)
+    day_complete = bool(day_concepts) and all(c["id"] in ever_passed for c in day_concepts)
 
     return QuizSubmitOut(
         score=score,
