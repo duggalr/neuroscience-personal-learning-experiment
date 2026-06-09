@@ -12,7 +12,44 @@ type Outcome = "correct" | "incorrect";
 interface Response {
   questionId: string;
   choice?: string;
+  text?: string;
   outcome: Outcome;
+}
+
+// Deterministic fill-in-the-blank match, mirrored from the backend (instant feedback).
+function normAns(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur.push(
+        Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] !== b[j - 1] ? 1 : 0))
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+function matchBlank(text: string, accept: string[]): boolean {
+  const t = normAns(text);
+  if (!t) return false;
+  return (accept ?? []).some((raw) => {
+    const na = normAns(raw);
+    if (!na) return false;
+    if (t === na) return true;
+    const thr = na.length <= 6 ? 1 : 2;
+    if (editDistance(t, na) <= thr) return true;
+    const toks = na.split(" ");
+    return toks.length >= 2 && toks.every((tok) => t.split(" ").includes(tok));
+  });
 }
 
 const accentBtn: React.CSSProperties = {
@@ -52,6 +89,7 @@ export function QuizRunner({ quiz, review = false }: { quiz: QuizGen; review?: b
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [choice, setChoice] = useState<string | null>(null);
+  const [text, setText] = useState("");
   const processedRef = useRef(false);
 
   // When the quiz finishes, run the librarian (build notes + evolve the learner
@@ -82,14 +120,20 @@ export function QuizRunner({ quiz, review = false }: { quiz: QuizGen; review?: b
     );
   }
 
-  const canSubmit = choice !== null;
+  const isBlank = q?.interaction === "blank";
+  const canSubmit = isBlank ? text.trim().length > 0 : choice !== null;
 
   const checkAnswer = () => {
-    const outcome: Outcome = choice === q.correctOptionId ? "correct" : "incorrect";
-    setResponses((prev) => [
-      ...prev,
-      { questionId: q.id, choice: choice ?? undefined, outcome },
-    ]);
+    if (isBlank) {
+      const outcome: Outcome = matchBlank(text, q.accept) ? "correct" : "incorrect";
+      setResponses((prev) => [...prev, { questionId: q.id, text, outcome }]);
+    } else {
+      const outcome: Outcome = choice === q.correctOptionId ? "correct" : "incorrect";
+      setResponses((prev) => [
+        ...prev,
+        { questionId: q.id, choice: choice ?? undefined, outcome },
+      ]);
+    }
     setPhase("feedback");
   };
 
@@ -98,6 +142,7 @@ export function QuizRunner({ quiz, review = false }: { quiz: QuizGen; review?: b
       setIndex((i) => i + 1);
       setPhase("answering");
       setChoice(null);
+      setText("");
       return;
     }
     // Last question → finalize: score, SRS, next-step.
@@ -106,6 +151,7 @@ export function QuizRunner({ quiz, review = false }: { quiz: QuizGen; review?: b
     const answers: AnswerInput[] = responses.map((r) => ({
       questionId: r.questionId,
       choice: r.choice,
+      text: r.text,
       outcome: r.outcome,
     }));
     try {
@@ -316,11 +362,44 @@ export function QuizRunner({ quiz, review = false }: { quiz: QuizGen; review?: b
           {q.label}
         </p>
         <div className="mt-3">
-          <Markdown source={q.prompt} size="lg" />
+          {isBlank ? (
+            <p
+              className="text-[1.0625rem] leading-relaxed"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {q.prompt}
+            </p>
+          ) : (
+            <Markdown source={q.prompt} size="lg" />
+          )}
         </div>
 
         <div className="mt-6 flex flex-col gap-2.5">
-          {(q.options ?? []).map((opt) => {
+          {isBlank ? (
+            <input
+              type="text"
+              value={current ? current.text ?? "" : text}
+              onChange={(e) => setText(e.target.value)}
+              disabled={phase === "feedback"}
+              autoFocus
+              autoComplete="off"
+              placeholder="Type the missing term…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canSubmit && phase === "answering") checkAnswer();
+              }}
+              className="w-full rounded-[12px] px-4 py-3.5 outline-none transition-colors disabled:opacity-100"
+              style={{
+                background: "var(--color-surface-raised)",
+                border:
+                  phase === "feedback"
+                    ? `1px solid color-mix(in oklch, var(--color-${current?.outcome === "correct" ? "correct" : "incorrect"}) 50%, transparent)`
+                    : "1px solid var(--color-line)",
+                color: "var(--color-ink)",
+                fontSize: "var(--text-base)",
+              }}
+            />
+          ) : (
+            (q.options ?? []).map((opt) => {
               const selected = (current ? current.choice : choice) === opt.id;
               const isCorrect = opt.id === q.correctOptionId;
               const reveal = phase === "feedback";
@@ -360,7 +439,8 @@ export function QuizRunner({ quiz, review = false }: { quiz: QuizGen; review?: b
                   {mark === "incorrect" && <X size={17} strokeWidth={2.2} style={{ color: "var(--color-incorrect)" }} />}
                 </button>
               );
-            })}
+            })
+          )}
         </div>
 
         {phase === "feedback" && current && (
@@ -382,6 +462,14 @@ export function QuizRunner({ quiz, review = false }: { quiz: QuizGen; review?: b
                 {current.outcome === "correct" ? "Correct" : "Not quite"}
               </span>
             </div>
+            {isBlank && q.accept.length > 0 && (
+              <p className="text-[0.875rem]" style={{ color: "var(--color-ink)" }}>
+                Answer:{" "}
+                <span className="font-semibold" style={{ color: "var(--color-correct)" }}>
+                  {q.accept[0]}
+                </span>
+              </p>
+            )}
             {q.explanation && <Markdown source={q.explanation} />}
           </div>
         )}

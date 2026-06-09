@@ -202,12 +202,13 @@ export interface QuizOption {
 export interface QuizQuestion {
   id: string;
   label: string;
-  interaction: "choice" | "true-false" | "text";
+  interaction: "choice" | "true-false" | "blank";
   prompt: string;
   options: QuizOption[];
   correctOptionId?: string | null;
   requireExplanation?: boolean;
   modelAnswer?: string | null;
+  accept: string[]; // accepted answers for 'blank' (first = canonical)
   explanation: string;
 }
 

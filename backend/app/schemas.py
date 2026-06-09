@@ -222,12 +222,13 @@ class QuizOptionOut(BaseModel):
 class QuizQuestionOut(BaseModel):
     id: str
     label: str
-    interaction: str  # 'choice' | 'true-false' | 'text'
+    interaction: str  # 'choice' | 'true-false' | 'blank'
     prompt: str
     options: list[QuizOptionOut] = []
     correctOptionId: str | None = None
     requireExplanation: bool = False
     modelAnswer: str | None = None
+    accept: list[str] = []  # accepted answers for 'blank' (first = canonical)
     explanation: str = ""
 
 

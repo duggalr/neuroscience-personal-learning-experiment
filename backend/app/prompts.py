@@ -261,13 +261,20 @@ and you must rewrite it. Aim for the level of a strong graduate course problem s
 {_QUIZ_EXEMPLARS}
 
 NOW WRITE THE QUIZ:
-- Exactly {count} questions. Use ONLY these two types: "choice" and "true-false". No \
-open/written answers. Favor multiple choice; include 1-2 true/false.
+- Exactly {count} questions. Use a ROUGHLY EVEN MIX of three types: "choice", "true-false", and \
+"blank" (fill-in-the-blank). No open/written essay answers.
 - "choice": 4 options, ONE correct. Distractors must be the half-right answers a smart student \
 would actually pick (real misconceptions, overclaims, level confusions), never obviously wrong.
 - "true-false": a claim subtle enough that a skimmer would guess wrong. Do NOT make every \
-true/false answer "false" — if you include two, at least one MUST be genuinely TRUE (and the \
-true one should be non-obvious, not a giveaway).
+true/false answer "false" — across the quiz, at least one true/false MUST be genuinely TRUE (and \
+the true one should be non-obvious, not a giveaway).
+- "blank": a single sentence testing RECALL of one key term. Mark the blank with exactly six \
+underscores: ______. The blank must hide the ONE core concept term (e.g. "dendrites", "axon \
+initial segment", "myelin"), never a trivial filler word, and the sentence must make exactly one \
+term correct. Provide "accept": a list of 3 to 6 acceptable answers covering singular/plural, \
+common abbreviations, and close synonyms, ALL lowercase (e.g. ["axon initial segment","ais",\
+"initial segment"]). The first entry is the canonical answer shown after grading. Grading is an \
+exact/typo-tolerant match against this list, so it MUST be complete.
 - No two questions test the same point; spread them across the distinct ideas taught.
 
 ITEM-WRITING DISCIPLINE (CRITICAL — a test-savvy person must NOT be able to guess without \
@@ -290,11 +297,13 @@ The ONLY way to identify the correct option should be understanding the material
 OUTPUT: return ONLY JSON of this exact shape (no prose, no code fences):
 {{"questions":[
   {{"label":"Multiple choice","interaction":"choice","prompt":"<markdown>","options":[{{"id":"a","label":"..."}},{{"id":"b","label":"..."}},{{"id":"c","label":"..."}},{{"id":"d","label":"..."}}],"correctOptionId":"b","explanation":"<why the answer is right AND why the tempting distractors are wrong, markdown>"}},
-  {{"label":"True / false","interaction":"true-false","prompt":"<claim>","options":[{{"id":"true","label":"True"}},{{"id":"false","label":"False"}}],"correctOptionId":"true","explanation":"<why, markdown>"}}
+  {{"label":"True / false","interaction":"true-false","prompt":"<claim>","options":[{{"id":"true","label":"True"}},{{"id":"false","label":"False"}}],"correctOptionId":"true","explanation":"<why, markdown>"}},
+  {{"label":"Fill in the blank","interaction":"blank","prompt":"Spikes are usually initiated at the ______, just past the soma.","accept":["axon initial segment","ais","initial segment"],"explanation":"<why, markdown>"}}
 ]}}
 
 RULES: bodies and options in clean markdown, accurate to what was taught, no em-dashes. The \
-distractors and true/false claims must be genuinely tricky but fair."""
+distractors, true/false claims, and blanks must be genuinely tricky but fair. Blank prompts are \
+plain sentences (no markdown emphasis) with exactly one ______ blank."""
 
 
 def single_note_instructions(user_name: str, existing_titles: list[str]) -> str:

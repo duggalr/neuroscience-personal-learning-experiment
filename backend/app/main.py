@@ -1510,6 +1510,44 @@ def _correct_is_longest_fraction(questions: list) -> float:
     return tells / len(mc)
 
 
+def _norm_ans(s: str) -> str:
+    """Normalize a typed answer for matching: lowercase, strip punctuation, collapse spaces."""
+    s = re.sub(r"[^\w\s]", "", s.lower())
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _edit_distance(a: str, b: str) -> int:
+    if a == b:
+        return 0
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _match_blank(text: str, accept: list) -> bool:
+    """True if a typed answer matches any accepted answer (exact, typo-tolerant, or token-subset)."""
+    t = _norm_ans(text or "")
+    if not t:
+        return False
+    for raw in accept or []:
+        na = _norm_ans(str(raw))
+        if not na:
+            continue
+        if t == na:
+            return True
+        thr = 1 if len(na) <= 6 else 2  # forgive minor typos, scaled to length
+        if _edit_distance(t, na) <= thr:
+            return True
+        toks = na.split()
+        if len(toks) >= 2 and all(tok in t.split() for tok in toks):
+            return True
+    return False
+
+
 @app.post("/concept/{concept_id}/quiz", response_model=QuizGenOut)
 def make_quiz(concept_id: str, review: bool = False):
     conn = get_conn()
@@ -1534,7 +1572,7 @@ def make_quiz(concept_id: str, review: bool = False):
         ctx,
         focus_points=focus or None,
         difficulty=difficulty,
-        count=5,
+        count=5 if review else 8,
         review=review,
     )
     # Pass the conversation as a REFERENCE TRANSCRIPT in one message, not as a live
@@ -1572,6 +1610,7 @@ def make_quiz(concept_id: str, review: bool = False):
 
     norm = []
     for i, q in enumerate(questions):
+        accept = [str(a).strip() for a in (q.get("accept") or []) if str(a).strip()]
         norm.append({
             "id": f"q{i + 1}",
             "label": q.get("label", "Question"),
@@ -1581,6 +1620,7 @@ def make_quiz(concept_id: str, review: bool = False):
             "correctOptionId": q.get("correctOptionId"),
             "requireExplanation": bool(q.get("requireExplanation")),
             "modelAnswer": q.get("modelAnswer"),
+            "accept": accept,
             "rubric": q.get("rubric"),
             "explanation": q.get("explanation", ""),
         })
@@ -1612,6 +1652,7 @@ def make_quiz(concept_id: str, review: bool = False):
                 correctOptionId=q["correctOptionId"],
                 requireExplanation=q["requireExplanation"],
                 modelAnswer=q["modelAnswer"],
+                accept=q.get("accept", []),
                 explanation=q["explanation"],
             )
             for q in norm
@@ -1670,39 +1711,23 @@ def submit_quiz(quiz_id: int, body: QuizSubmitIn):
 
     answers = {a.questionId: a for a in body.answers}
     results: dict[str, dict] = {}
-    text_items = []
     for q in questions:
         qid = q["id"]
         a = answers.get(qid)
-        if q["interaction"] == "text":
-            # Prefer the per-question grade the client already got; else grade in batch.
-            if a and a.outcome in ("correct", "incorrect"):
-                results[qid] = {"outcome": a.outcome, "feedback": ""}
-            else:
-                text_items.append({
-                    "id": qid,
-                    "question": q["prompt"],
-                    "rubric": q.get("rubric") or q.get("modelAnswer") or "",
-                    "model_answer": q.get("modelAnswer") or "",
-                    "answer": (a.text if a else "") or "",
-                })
+        if q["interaction"] == "blank":
+            # Authoritative server-side deterministic match (the client grades the same way
+            # for instant feedback; this is the source of truth for scoring).
+            ok = _match_blank(a.text if a else "", q.get("accept") or [])
+            results[qid] = {
+                "outcome": "correct" if ok else "incorrect",
+                "feedback": q.get("explanation", ""),
+            }
         else:
             chosen = a.choice if a else None
             correct = chosen is not None and chosen == q.get("correctOptionId")
             results[qid] = {
                 "outcome": "correct" if correct else "incorrect",
                 "feedback": q.get("explanation", ""),
-            }
-
-    if text_items:
-        grades = grade_text_answers(
-            quiz_grading_instructions(USER_NAME), json.dumps({"items": text_items})
-        )
-        for it in text_items:
-            g = grades.get(it["id"], {"correct": False, "feedback": ""})
-            results[it["id"]] = {
-                "outcome": "correct" if g["correct"] else "incorrect",
-                "feedback": g.get("feedback", ""),
             }
 
     total = len(questions)
